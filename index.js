@@ -53,9 +53,18 @@ function getNextPageInfo(linkHeader) {
 async function getAllOrders(fromDate, toDate) {
   let orders = [];
   let pageInfo = null;
+  let firstRequest = true;
  
   do {
-    const url = `orders.json?status=any&limit=250&order=created_at asc&created_at_min=${fromDate}T00:00:00Z&created_at_max=${toDate}T23:59:59Z${pageInfo ? `&page_info=${pageInfo}` : ''}`;
+    let url;
+    if (firstRequest) {
+      url = `orders.json?status=any&limit=250&order=created_at asc&created_at_min=${fromDate}T00:00:00Z&created_at_max=${toDate}T23:59:59Z`;
+      firstRequest = false;
+    } else {
+      // For subsequent pages, only page_info and limit allowed
+      url = `orders.json?limit=250&page_info=${pageInfo}`;
+    }
+ 
     const res = await retryRequest(() => api.get(url));
     orders = orders.concat(res.data.orders);
     pageInfo = getNextPageInfo(res.headers.link);
