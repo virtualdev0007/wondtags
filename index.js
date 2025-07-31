@@ -136,6 +136,10 @@ async function processOrdersInBatches(fromDate, toDate) {
  
   console.log('🎉 All done!');
 }
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'form.html'));
+});
  
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
