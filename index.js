@@ -19,7 +19,7 @@ const api = axios.create({
  
 // Serve the form page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'form.html'));
+  res.sendFile(path.join(__dirname, 'form.html'));
 });
  
 // Shopify pagination helper
