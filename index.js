@@ -1,5 +1,12 @@
 require('dotenv').config();
+const express = require('express');
 const axios = require('axios');
+const path = require('path');
+ 
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+ 
+const PORT = process.env.PORT || 5000;
  
 const SHOP = process.env.SHOP;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
@@ -13,6 +20,31 @@ const api = axios.create({
   },
 });
  
+// Serve the form page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'form.html'));
+});
+ 
+// Handle form submission
+app.post('/run', async (req, res) => {
+  const { fromDate, toDate } = req.body;
+ 
+  if (!fromDate || !toDate) {
+    return res.status(400).send('Both From Date and To Date are required.');
+  }
+ 
+  console.log(`Running tagger from ${fromDate} to ${toDate}`);
+ 
+  try {
+    await processOrdersInBatches(fromDate, toDate);
+    res.send(`<h2>✅ Done! Orders tagged from ${fromDate} to ${toDate}.</h2>`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Something went wrong.');
+  }
+});
+ 
+// Shopify pagination helper
 function getNextPageInfo(linkHeader) {
   if (!linkHeader) return null;
   const matches = linkHeader.match(/<([^>]+)>; rel="next"/);
@@ -23,6 +55,7 @@ function getNextPageInfo(linkHeader) {
   return null;
 }
  
+// Get all customers
 async function getAllCustomers() {
   let customers = [];
   let pageInfo = null;
@@ -38,12 +71,13 @@ async function getAllCustomers() {
   return customers;
 }
  
-async function getOrdersForCustomer(customerId) {
+// Get orders for a customer with date range
+async function getOrdersForCustomer(customerId, fromDate, toDate) {
   let orders = [];
   let pageInfo = null;
  
   do {
-    const url = `orders.json?customer_id=${customerId}&status=any&limit=250&order=created_at asc${pageInfo ? `&page_info=${pageInfo}` : ''}`;
+    const url = `orders.json?customer_id=${customerId}&status=any&limit=250&order=created_at asc&created_at_min=${fromDate}T00:00:00Z&created_at_max=${toDate}T23:59:59Z${pageInfo ? `&page_info=${pageInfo}` : ''}`;
     const res = await api.get(url);
     orders = orders.concat(res.data.orders);
     pageInfo = getNextPageInfo(res.headers.link);
@@ -52,6 +86,7 @@ async function getOrdersForCustomer(customerId) {
   return orders;
 }
  
+// Update order tags
 async function updateOrderTags(orderId, tags) {
   try {
     await api.put(`orders/${orderId}.json`, {
@@ -66,7 +101,8 @@ async function updateOrderTags(orderId, tags) {
   }
 }
  
-async function processOrdersInBatches() {
+// Process orders in batches
+async function processOrdersInBatches(fromDate, toDate) {
   const customers = await getAllCustomers();
   const BATCH_SIZE = 50;
  
@@ -74,7 +110,7 @@ async function processOrdersInBatches() {
     const batch = customers.slice(c, c + BATCH_SIZE);
  
     for (const customer of batch) {
-      const orders = await getOrdersForCustomer(customer.id);
+      const orders = await getOrdersForCustomer(customer.id, fromDate, toDate);
  
       for (let i = 0; i < orders.length; i++) {
         const order = orders[i];
@@ -91,7 +127,7 @@ async function processOrdersInBatches() {
  
         await updateOrderTags(order.id, tags);
  
-        await new Promise(res => setTimeout(res, 500)); // rate limit safe
+        await new Promise(res => setTimeout(res, 500)); // Rate limit
       }
     }
  
@@ -101,4 +137,6 @@ async function processOrdersInBatches() {
   console.log('🎉 All done!');
 }
  
-processOrdersInBatches().catch(console.error);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
