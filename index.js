@@ -101,23 +101,31 @@ async function processOrdersInBatches(fromDate, toDate) {
       const ordersInRange = await getOrdersForCustomer(customer.id, fromDate, toDate);
  
       for (const order of ordersInRange) {
-        let tags = order.tags ? order.tags.split(',').map(t => t.trim()) : [];
+  let tags = order.tags ? order.tags.split(',').map(t => t.trim()) : [];
  
-        // Remove previous numeric tags (order counts) if any
-        tags = tags.filter(t => !/^\d+$/.test(t));
+// Remove previous numeric tags (order counts) if any
+  tags = tags.filter(t => !/^\d+$/.test(t) && t !== 'new-customer' && t !== 'returning-customer');
  
-        // Calculate how many orders customer had before this order
-        const previousCount = await getPreviousOrderCount(customer.id, order.created_at);
+  // Calculate how many orders customer had before this order
+  const previousCount = await getPreviousOrderCount(customer.id, order.created_at);
  
-        const totalCount = previousCount + 1; // current order included
+  const totalCount = previousCount + 1; // current order included
  
-        tags.push(`${totalCount}`);
+  if (previousCount === 0) {
+    // First order for customer
+    tags.push('1', 'new-customer');
+  } else {
+    // Returning customer
+    tags.push(`${totalCount}`, 'returning-customer');
+  }
  
-        await updateOrderTags(order.id, tags);
+  await updateOrderTags(order.id, tags);
  
-        // Be kind to API rate limits
-        await new Promise(res => setTimeout(res, 500));
-      }
+  // Be kind to API rate limits
+  await new Promise(res => setTimeout(res, 500));
+}
+
+     
     }
  
     console.log(`=== Processed ${Math.min(c + BATCH_SIZE, customers.length)} of ${customers.length} customers ===`);
