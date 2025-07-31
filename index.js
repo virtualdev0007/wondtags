@@ -22,7 +22,7 @@ const api = axios.create({
  
 // Serve the form page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'form.html'));
+  res.sendFile(path.join(__dirname, 'form.html'));
 });
  
 // Handle form submission
@@ -136,10 +136,6 @@ async function processOrdersInBatches(fromDate, toDate) {
  
   console.log('🎉 All done!');
 }
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'form.html'));
-});
  
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
